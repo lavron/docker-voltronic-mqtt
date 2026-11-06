@@ -1,21 +1,49 @@
-import serial
 import os
+import time
+import serial
 
-SERIAL_PORT = os.getenv('SERIAL_PORT')
+SERIAL_PORT = os.getenv("SERIAL_PORT")
+RECONNECT_DELAY_S = float(os.getenv("RECONNECT_DELAY_S", 5))
 
 
 class SerialPort:
     def __init__(self):
-        self.port = serial.Serial(SERIAL_PORT, 2400, timeout=0.5)
-        self.port.reset_input_buffer()
+        self.port = None
 
-    def write(self, query_bytes):
-        self.port.reset_input_buffer()
-        self.port.write(query_bytes)
+    def request(self, query_bytes):
+        while True:
+            try:
+                if self.port is None or not self.port.is_open:
+                    self.port = serial.Serial(
+                        SERIAL_PORT, 2400, timeout=0.5
+                    )
+                    print("Serial port connected", flush=True)
 
-    def read(self):
-        response = self.port.readlines(None)
-        return response
+                self.port.reset_input_buffer()
+                self.port.write(query_bytes)
+                response = self.port.readlines(None)
+
+                if (
+                    not response
+                    or not response[0].startswith(b"(")
+                    or not response[0].endswith(b"\r")
+                ):
+                    raise TimeoutError("Invalid inverter response")
+
+                return response
+
+            except (serial.SerialException, OSError, TimeoutError) as e:
+                print(f"Serial error: {e}", flush=True)
+                self.close()
+                time.sleep(RECONNECT_DELAY_S)
+
+    def close(self):
+        if self.port is not None:
+            try:
+                self.port.close()
+            except (serial.SerialException, OSError):
+                pass
+            self.port = None
 
 
 # tests

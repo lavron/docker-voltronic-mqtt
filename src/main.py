@@ -1,10 +1,11 @@
-#! /usr/bin/python3
+import os
 import time
+
 from voltronic import Voltronic
 from mqtt import MQTT
-import os
 
-REPORT_INTERVAL_S = int(os.getenv('REPORT_INTERVAL_S', 1))
+REPORT_INTERVAL_S = float(os.getenv("REPORT_INTERVAL_S", 1))
+QUERIES = ("QMOD", "QPIGS", "QPIWS")
 
 inverter = Voltronic()
 client = MQTT()
@@ -12,11 +13,9 @@ client = MQTT()
 
 def loop():
     while True:
-        inverter.update("QMOD")
-        inverter.update("QPIGS")
-        inverter.update("QPIWS")
+        if inverter.poll(QUERIES):
+            client.publish(inverter.sensors)
 
-        client.publish(inverter.sensors)
         time.sleep(REPORT_INTERVAL_S)
 
 

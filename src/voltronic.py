@@ -12,15 +12,22 @@ class Voltronic:
 
         self.port = SerialPort()
 
+    def poll(self, queries):
+        try:
+            for query in queries:
+                self.update(query)
+            return True
+        except (ValueError, IndexError, KeyError, TypeError) as e:
+            print(f"Inverter polling error: {e}", flush=True)
+            return False
+
     def update(self, query):
         query_bytes = query_to_bytes(query)
         response = self.require(query_bytes)
         self.unpack_data(query, response)
 
     def require(self, query_bytes):
-        self.port.write(query_bytes)
-        response = self.port.read()
-        return response
+        return self.port.request(query_bytes)
 
     def print_sensors(self):
         for query in self.sensors:
@@ -48,6 +55,7 @@ class Voltronic:
 
         except Exception as e:
             print(f"Error unpacking data: {e}, query: {query}, data: {data}")
+            raise
 
 
 def get_warning(data):
